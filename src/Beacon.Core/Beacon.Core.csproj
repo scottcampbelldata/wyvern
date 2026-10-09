@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <!-- Privacy rule: Core has no HTTP. Do not even import the namespace by default. -->
+  <ItemGroup>
+    <Using Remove="System.Net.Http" />
+  </ItemGroup>
+
+  <!--
+    The one third-party package: SSH.NET, for SFTP. The version is pinned exactly, so that a
+    build never takes a newer one by itself. Only SftpRemoteStore.cs uses it.
+  -->
+  <ItemGroup>
+    <PackageReference Include="SSH.NET" Version="[2026.0.0]" />
+  </ItemGroup>
+
+</Project>
