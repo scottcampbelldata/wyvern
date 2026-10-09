@@ -1,0 +1,433 @@
+<Window x:Class="Wyvern.App.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Wyvern Settings"
+        Width="740"
+        Height="580"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource Bg}"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+    <Window.Resources>
+        <FontFamily x:Key="Glyphs">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+        <!-- The colours, light to begin with; LauncherLook.Apply swaps them when Windows is dark. -->
+        <SolidColorBrush x:Key="Bg" Color="#FFFBFBFB" />
+        <SolidColorBrush x:Key="Stroke" Color="#FFD0D0D0" />
+        <SolidColorBrush x:Key="Line" Color="#FFE5E5E5" />
+        <SolidColorBrush x:Key="Ink" Color="#FF242424" />
+        <SolidColorBrush x:Key="Dim" Color="#FF8A8A8A" />
+        <SolidColorBrush x:Key="Faint" Color="#FFA9A9A9" />
+        <SolidColorBrush x:Key="Pick" Color="#FFEAEAEB" />
+        <SolidColorBrush x:Key="Chip" Color="#FFE8E8E9" />
+        <SolidColorBrush x:Key="Accent" Color="#FF3B82F6" />
+
+        <!-- One of the tabs across the top: a sign over a word, grey behind the one that is open. -->
+        <Style x:Key="Tab" TargetType="RadioButton">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="GroupName" Value="Tabs" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Back" MinWidth="80" Margin="3,0" Padding="8,7,8,6" CornerRadius="8" Background="Transparent">
+                            <StackPanel>
+                                <TextBlock FontFamily="{StaticResource Glyphs}" FontSize="19" HorizontalAlignment="Center" Foreground="{DynamicResource Ink}" Text="{TemplateBinding Tag}" />
+                                <TextBlock Margin="0,5,0,0" FontSize="12" HorizontalAlignment="Center" Foreground="{DynamicResource Ink}" Text="{TemplateBinding Content}" />
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Back" Property="Background" Value="{DynamicResource Pick}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A box to type in. -->
+        <!-- One of a few choices that stand side by side: the chosen one is filled in. -->
+        <Style x:Key="Choice" TargetType="RadioButton">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="GroupName" Value="Look" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Back" Height="30" Margin="0,0,7,0" Padding="13,0" CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource Stroke}" Background="Transparent">
+                            <TextBlock x:Name="Words" FontSize="13" VerticalAlignment="Center" Foreground="{DynamicResource Ink}" Text="{TemplateBinding Content}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Back" Property="Background" Value="{DynamicResource Accent}" />
+                                <Setter TargetName="Back" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                                <Setter TargetName="Words" Property="Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Field" TargetType="TextBox">
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="CaretBrush" Value="{DynamicResource Ink}" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Edge" CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource Stroke}" Background="{DynamicResource Bg}">
+                            <ScrollViewer x:Name="PART_ContentHost" Margin="7,0" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Edge" Property="BorderBrush" Value="{DynamicResource Accent}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A switch: off to the left, on to the right. -->
+        <Style x:Key="Switch" TargetType="CheckBox">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Border x:Name="Track" Width="38" Height="22" CornerRadius="11" Background="{DynamicResource Stroke}">
+                            <Ellipse x:Name="Knob" Width="16" Height="16" Margin="3,0" HorizontalAlignment="Left" Fill="White" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Track" Property="Background" Value="{DynamicResource Accent}" />
+                                <Setter TargetName="Knob" Property="HorizontalAlignment" Value="Right" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A button, and the one that saves. -->
+        <Style x:Key="Plain" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Back" CornerRadius="6" Padding="13,0" Background="{DynamicResource Chip}">
+                            <TextBlock FontSize="13" Foreground="{DynamicResource Ink}" VerticalAlignment="Center" HorizontalAlignment="Center" Text="{TemplateBinding Content}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Back" Property="Background" Value="{DynamicResource Stroke}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Back" Property="Opacity" Value="0.5" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="Main" TargetType="Button">
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Back" CornerRadius="6" Padding="18,0" Background="{DynamicResource Accent}">
+                            <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="White" VerticalAlignment="Center" HorizontalAlignment="Center" Text="{TemplateBinding Content}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Back" Property="Opacity" Value="0.9" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Back" Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- The name of a setting, at the left of its line, and the words that explain it underneath. -->
+        <Style x:Key="Name" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Ink}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Margin" Value="0,6,18,0" />
+        </Style>
+        <Style x:Key="Hint" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource Dim}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,5,0,0" />
+            <Setter Property="MaxWidth" Value="400" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style x:Key="Row" TargetType="Grid">
+            <Setter Property="Margin" Value="0,0,40,18" />
+        </Style>
+    </Window.Resources>
+    <DockPanel>
+        <!-- The tabs. Each one's Tag is its sign in the icon font. -->
+        <Border DockPanel.Dock="Top" BorderThickness="0,0,0,1" BorderBrush="{DynamicResource Line}" Padding="0,10,0,9">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                <RadioButton x:Name="TabGeneral" Style="{StaticResource Tab}" Content="General" Tag="&#xE713;" IsChecked="True" Checked="OnTabChecked" />
+                <RadioButton x:Name="TabAppearance" Style="{StaticResource Tab}" Content="Appearance" Tag="&#xE771;" Checked="OnTabChecked" />
+                <RadioButton x:Name="TabClipboard" Style="{StaticResource Tab}" Content="Clipboard" Tag="&#xE77F;" Checked="OnTabChecked" />
+                <RadioButton x:Name="TabHotkeys" Style="{StaticResource Tab}" Content="Hotkeys" Tag="&#xE765;" Checked="OnTabChecked" />
+                <RadioButton x:Name="TabSnippets" Style="{StaticResource Tab}" Content="Snippets" Tag="&#xE70F;" Checked="OnTabChecked" />
+                <RadioButton x:Name="TabFiles" Style="{StaticResource Tab}" Content="File Search" Tag="&#xE8B7;" Checked="OnTabChecked" />
+                <RadioButton x:Name="TabSync" Style="{StaticResource Tab}" Content="Sync" Tag="&#xE895;" Checked="OnTabChecked" />
+                <RadioButton x:Name="TabAbout" Style="{StaticResource Tab}" Content="About" Tag="&#xE946;" Checked="OnTabChecked" />
+            </StackPanel>
+        </Border>
+
+        <!-- The foot: what happened, and the two buttons. -->
+        <Border DockPanel.Dock="Bottom" BorderThickness="0,1,0,0" BorderBrush="{DynamicResource Line}" Padding="18,11">
+            <DockPanel>
+                <Button x:Name="SaveButton" DockPanel.Dock="Right" Style="{StaticResource Main}" Content="Save" Click="OnSave" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource Plain}" Content="Cancel" Margin="0,0,9,0" Click="OnCancel" />
+                <TextBlock x:Name="Status" FontSize="12.5" Foreground="{DynamicResource Dim}" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,16,0" />
+            </DockPanel>
+        </Border>
+
+        <Grid Margin="0,26,0,0">
+            <!-- General -->
+            <StackPanel x:Name="PageGeneral">
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Wyvern Hotkey" />
+                    <StackPanel Grid.Column="1">
+                        <TextBox x:Name="HotkeyBox" Style="{StaticResource Field}" Width="210" HorizontalAlignment="Left" IsReadOnly="True" PreviewKeyDown="OnHotkeyKeyDown" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Click the box and press the keys. It opens and closes the launcher from anywhere." />
+                    </StackPanel>
+                </Grid>
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Start with Windows" />
+                    <CheckBox x:Name="StartBox" Grid.Column="1" Style="{StaticResource Switch}" Margin="0,4,0,0" />
+                </Grid>
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Name of This PC" />
+                    <StackPanel Grid.Column="1">
+                        <TextBox x:Name="DeviceBox" Style="{StaticResource Field}" Width="280" HorizontalAlignment="Left" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Shown beside what was copied on this PC. Empty: the name Windows has for it." />
+                    </StackPanel>
+                </Grid>
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Data Folder" />
+                    <StackPanel Grid.Column="1">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBox x:Name="DataDirBox" Style="{StaticResource Field}" Width="320" />
+                            <Button Style="{StaticResource Plain}" Content="Browse..." Margin="8,0,0,0" Click="OnBrowseDataDir" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Hint}" Text="Where your quicklinks, snippets, scripts and clipboard history are kept. Empty: Wyvern's own folder." />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
+            <!-- Appearance: light or dark, and how the launcher and the confetti are drawn. -->
+            <StackPanel x:Name="PageAppearance" Visibility="Collapsed">
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Appearance" />
+                    <StackPanel Grid.Column="1">
+                        <StackPanel Orientation="Horizontal">
+                            <RadioButton x:Name="LookSystem" Style="{StaticResource Choice}" Content="Follow Windows" Checked="OnLookChecked" />
+                            <RadioButton x:Name="LookLight" Style="{StaticResource Choice}" Content="Light" Checked="OnLookChecked" />
+                            <RadioButton x:Name="LookDark" Style="{StaticResource Choice}" Content="Dark" Checked="OnLookChecked" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Hint}" Text="Whether Wyvern's windows are light or dark. Follow Windows goes by the app colour mode in Windows' own settings." />
+                    </StackPanel>
+                </Grid>
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Blurred Glass Background" />
+                    <StackPanel Grid.Column="1">
+                        <CheckBox x:Name="GlassBox" Style="{StaticResource Switch}" Margin="0,4,0,0" />
+                        <TextBlock Style="{StaticResource Hint}" Text="The launcher on blurred glass, on Windows 11. A change takes effect the next time Wyvern starts." />
+                    </StackPanel>
+                </Grid>
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Click Through Confetti" />
+                    <StackPanel Grid.Column="1">
+                        <CheckBox x:Name="ConfettiBox" Style="{StaticResource Switch}" Margin="0,4,0,0" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Off: the fast way, and a click ends the confetti. On: clicks go through it, and it can stutter on a large screen." />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
+            <!-- Clipboard -->
+            <StackPanel x:Name="PageClipboard" Visibility="Collapsed">
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Clipboard History Hotkey" />
+                    <StackPanel Grid.Column="1">
+                        <TextBox x:Name="ClipHotkeyBox" Style="{StaticResource Field}" Width="210" HorizontalAlignment="Left" IsReadOnly="True" PreviewKeyDown="OnHotkeyKeyDown" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Click the box and press the keys. It opens the clipboard history directly. Backspace clears it: then it has no hotkey." />
+                    </StackPanel>
+                </Grid>
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Keep History For" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <TextBox x:Name="RetentionBox" Style="{StaticResource Field}" Width="70" />
+                        <TextBlock FontSize="13.5" Foreground="{DynamicResource Ink}" VerticalAlignment="Center" Margin="9,0,0,0" Text="days" />
+                    </StackPanel>
+                </Grid>
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="History" />
+                    <Button Grid.Column="1" Style="{StaticResource Plain}" Content="Open Clipboard History" Click="OnOpenClipboard" />
+                </Grid>
+            </StackPanel>
+
+            <!-- Snippets -->
+            <StackPanel x:Name="PageSnippets" Visibility="Collapsed">
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Expand Keywords as You Type" />
+                    <StackPanel Grid.Column="1">
+                        <CheckBox x:Name="AutoExpandBox" Style="{StaticResource Switch}" Margin="0,4,0,0" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Type a snippet's keyword in any program and it is replaced by the snippet. While this is on, Windows tells Wyvern of every key you press. Wyvern keeps at most the last 64 characters, in memory only, and nothing you type is written or sent anywhere." />
+                    </StackPanel>
+                </Grid>
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Snippets" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <Button Style="{StaticResource Plain}" Content="New Snippet" Click="OnNewSnippet" />
+                        <Button Style="{StaticResource Plain}" Content="Open Library Folder" Margin="8,0,0,0" Click="OnOpenLibrary" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
+            <!-- Hotkeys: one row for each command that can have one. The rows are made in the code. -->
+            <DockPanel x:Name="PageHotkeys" Visibility="Collapsed" Margin="44,-6,20,0">
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource Hint}" MaxWidth="660" Margin="0,0,0,12" Text="Give a command a hotkey of its own, to run it from anywhere: click its box and press the keys. Backspace clears the box. The launcher's hotkey is under General and the clipboard history's under Clipboard." />
+                <ScrollViewer VerticalScrollBarVisibility="Auto" Focusable="False">
+                    <StackPanel x:Name="HotkeyRows" Margin="0,0,18,8" />
+                </ScrollViewer>
+            </DockPanel>
+
+            <!-- File search -->
+            <StackPanel x:Name="PageFiles" Visibility="Collapsed">
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Folders That Are Searched" />
+                    <StackPanel Grid.Column="1">
+                        <Border CornerRadius="6" BorderThickness="1" BorderBrush="{DynamicResource Stroke}" Width="410" Height="190" HorizontalAlignment="Left">
+                            <ListBox x:Name="FoldersList" Background="Transparent" BorderThickness="0" Foreground="{DynamicResource Ink}" FontSize="13" Margin="3" ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+                        </Border>
+                        <StackPanel Orientation="Horizontal" Margin="0,9,0,0">
+                            <Button Style="{StaticResource Plain}" Content="Add Folder..." Click="OnAddFolder" />
+                            <Button Style="{StaticResource Plain}" Content="Remove" Margin="8,0,0,0" Click="OnRemoveFolder" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Hint}" Text="Files and folders in these are found by name. To begin with: Documents, Desktop and Downloads." />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
+            <!-- Sync -->
+            <StackPanel x:Name="PageSync" Visibility="Collapsed">
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Your Server" />
+                    <StackPanel Grid.Column="1">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Style="{StaticResource Plain}" Content="Set Up Sync..." Click="OnSyncSetup" />
+                            <Button Style="{StaticResource Plain}" Content="Sync Now" Margin="8,0,0,0" Click="OnSyncNow" />
+                        </StackPanel>
+                        <TextBlock Style="{StaticResource Hint}" Text="Wyvern syncs your library and clipboard history between your PCs through your own server, over SSH. The server only ever gets encrypted files." />
+                    </StackPanel>
+                </Grid>
+                <Grid Style="{StaticResource Row}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="250" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Style="{StaticResource Name}" Text="Sync Every" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                        <TextBox x:Name="SyncIntervalBox" Style="{StaticResource Field}" Width="70" />
+                        <TextBlock FontSize="13.5" Foreground="{DynamicResource Ink}" VerticalAlignment="Center" Margin="9,0,0,0" Text="minutes" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
+            <!-- About -->
+            <StackPanel x:Name="PageAbout" Visibility="Collapsed" HorizontalAlignment="Center" Margin="0,18,0,0">
+                <Viewbox Width="76" Height="76">
+                    <Canvas Width="64" Height="64">
+                        <Rectangle Width="64" Height="64" RadiusX="15" RadiusY="15" Fill="#FF1E3A5F" />
+                        <Path Stroke="White" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 45.5,15.9 A 21,21 0 0 1 45.5,48.1" />
+                        <Path Stroke="White" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 18.5,15.9 A 21,21 0 0 0 18.5,48.1" />
+                        <Ellipse Canvas.Left="22.4" Canvas.Top="22.4" Width="19.2" Height="19.2" Fill="#FFFFB000" />
+                    </Canvas>
+                </Viewbox>
+                <TextBlock FontSize="22" FontWeight="SemiBold" Foreground="{DynamicResource Ink}" HorizontalAlignment="Center" Margin="0,14,0,0" Text="Wyvern" />
+                <TextBlock x:Name="VersionText" FontSize="13" Foreground="{DynamicResource Dim}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,22,0,0">
+                    <Button Style="{StaticResource Plain}" Content="Open Settings File" Click="OnOpenSettingsFile" />
+                    <Button Style="{StaticResource Plain}" Content="Open Log Folder" Margin="8,0,0,0" Click="OnOpenLogFolder" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </DockPanel>
+</Window>

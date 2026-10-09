@@ -1,0 +1,814 @@
+<Window x:Class="Wyvern.App.LauncherWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Wyvern.App"
+        x:Name="Root"
+        Title="Wyvern"
+        Width="790"
+        SizeToContent="Height"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        FontFamily="Segoe UI Variable Text, Segoe UI"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True"
+        PreviewKeyDown="OnPreviewKeyDown">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="VisibleWhenTrue" />
+        <local:KindLabelConverter x:Key="KindLabel" />
+        <local:ItemGlyphConverter x:Key="ItemGlyph" />
+        <local:ItemTileConverter x:Key="ItemTile" />
+        <local:ItemShapeConverter x:Key="ItemShape" />
+        <local:ItemAliasConverter x:Key="ItemAlias" />
+        <local:ItemSubtitleConverter x:Key="ItemSubtitle" />
+        <local:TileVisibilityConverter x:Key="TileVisibility" />
+        <local:ClipGlyphConverter x:Key="ClipGlyph" />
+        <local:NullToCollapsedConverter x:Key="CollapsedWhenNull" />
+        <FontFamily x:Key="Glyphs">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+        <!-- The colours. These are the light ones; the window swaps them for the dark ones when
+             Windows is set to dark (LauncherLook.Apply), which is why everything below asks for
+             them as dynamic resources. -->
+        <SolidColorBrush x:Key="Bg" Color="#FFFBFBFB" />
+        <!-- The window's own background: the same as Bg, or a thin tint when it stands on glass. -->
+        <SolidColorBrush x:Key="Panel" Color="#FFFBFBFB" />
+        <SolidColorBrush x:Key="Stroke" Color="#FFD0D0D0" />
+        <SolidColorBrush x:Key="Line" Color="#FFE5E5E5" />
+        <SolidColorBrush x:Key="Ink" Color="#FF242424" />
+        <SolidColorBrush x:Key="Dim" Color="#FF8A8A8A" />
+        <SolidColorBrush x:Key="Faint" Color="#FFA9A9A9" />
+        <SolidColorBrush x:Key="Pick" Color="#FFEAEAEB" />
+        <SolidColorBrush x:Key="Chip" Color="#FFE8E8E9" />
+
+        <!-- One row of a list: a rounded band, a little in from either side, grey when selected. -->
+        <Style x:Key="RowStyle" TargetType="ListBoxItem">
+            <Setter Property="Focusable" Value="False" />
+            <!-- What a screen reader, or any other tool that asks, is told a row is called: its
+                 title and nothing more. Left alone, a row would be called by all that it holds,
+                 which for the clipboard history is what was copied. -->
+            <Setter Property="AutomationProperties.Name" Value="{Binding Title}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Row" Height="38" Margin="7,0" Padding="7,0" CornerRadius="8" Background="Transparent">
+                            <ContentPresenter VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Row" Property="Background" Value="{DynamicResource Pick}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- One row of the list of actions: the words, and at the right the keys that do it. -->
+        <Style x:Key="ActionRowStyle" TargetType="ListBoxItem" BasedOn="{StaticResource RowStyle}">
+            <Setter Property="AutomationProperties.Name" Value="{Binding Text}" />
+        </Style>
+
+        <!-- The heading over a group of rows. -->
+        <!-- A line of the emoji picker: nothing of its own is drawn, the emoji in it show which is selected. -->
+        <Style x:Key="EmojiRowStyle" TargetType="ListBoxItem">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="AutomationProperties.Name" Value="Emoji" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <ContentPresenter />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <DataTemplate x:Key="GroupHeading">
+            <TextBlock Margin="14,10,14,5" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource Dim}" Text="{Binding Name}" />
+        </DataTemplate>
+
+        <!-- A group of rows under its heading, with no step in from the edge. -->
+        <Style x:Key="GroupContainer" TargetType="GroupItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupItem">
+                        <StackPanel>
+                            <ContentPresenter />
+                            <ItemsPresenter />
+                        </StackPanel>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- A list with no frame and no scroll bar of its own: the wheel and the keys scroll it. -->
+        <Style x:Key="PlainList" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0,6,0,6" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Hidden" />
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+            <Setter Property="VirtualizingPanel.IsVirtualizing" Value="True" />
+            <Setter Property="VirtualizingPanel.IsVirtualizingWhenGrouping" Value="True" />
+            <Setter Property="VirtualizingPanel.ScrollUnit" Value="Pixel" />
+            <Setter Property="VirtualizingPanel.VirtualizationMode" Value="Recycling" />
+        </Style>
+
+        <!-- A key, as it is drawn beside what it does. -->
+        <Style x:Key="KeyCap" TargetType="Border">
+            <Setter Property="Height" Value="22" />
+            <Setter Property="MinWidth" Value="24" />
+            <Setter Property="Padding" Value="5,0" />
+            <Setter Property="CornerRadius" Value="5" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="{DynamicResource Stroke}" />
+            <Setter Property="Background" Value="{DynamicResource Bg}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style x:Key="KeyText" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="Foreground" Value="{DynamicResource Dim}" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- A name shown in front of the input: the item an argument is for, or the script whose output is shown. -->
+        <Style x:Key="NameChip" TargetType="Border">
+            <Setter Property="Margin" Value="8,0,0,0" />
+            <Setter Property="Padding" Value="9,4" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="{DynamicResource Chip}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- The button that goes one step back, as Esc does. -->
+        <Style x:Key="BackButton" TargetType="Button">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Width" Value="24" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border CornerRadius="6" Background="{DynamicResource Chip}">
+                            <TextBlock FontFamily="{StaticResource Glyphs}" Text="&#xE72B;" FontSize="12" Foreground="{DynamicResource Ink}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- The choice of which kinds of entries the clipboard history lists. -->
+        <Style x:Key="TypeItem" TargetType="ComboBoxItem">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="Row" Margin="4,1" Padding="10,6" CornerRadius="6" Background="Transparent">
+                            <TextBlock FontSize="13.5" Foreground="{DynamicResource Ink}" Text="{Binding Name}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="Row" Property="Background" Value="{DynamicResource Pick}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="TypeChoice" TargetType="ComboBox">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource TypeItem}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton Focusable="False"
+                                          ClickMode="Press"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource Stroke}" Background="{DynamicResource Bg}" />
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+                            <DockPanel IsHitTestVisible="False" Margin="12,0">
+                                <TextBlock DockPanel.Dock="Left" FontFamily="{StaticResource Glyphs}" Text="&#xEA37;" FontSize="13" Foreground="{DynamicResource Ink}" VerticalAlignment="Center" Margin="0,0,9,0" />
+                                <TextBlock DockPanel.Dock="Right" FontFamily="{StaticResource Glyphs}" Text="&#xE70D;" FontSize="9" Foreground="{DynamicResource Ink}" VerticalAlignment="Center" Margin="9,1,0,0" />
+                                <TextBlock FontSize="13.5" Foreground="{DynamicResource Ink}" VerticalAlignment="Center" Text="{Binding SelectedItem.Name, RelativeSource={RelativeSource TemplatedParent}}" />
+                            </DockPanel>
+                            <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" VerticalOffset="4" AllowsTransparency="True" Focusable="False" PopupAnimation="None">
+                                <Border MinWidth="{TemplateBinding ActualWidth}" Margin="8" Padding="0,4" CornerRadius="8" BorderThickness="1" BorderBrush="{DynamicResource Stroke}" Background="{DynamicResource Bg}">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="10" ShadowDepth="2" Opacity="0.2" />
+                                    </Border.Effect>
+                                    <ItemsPresenter />
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <!-- Drawn by Wyvern itself: room for a shadow, the shadow, and the rounded window. When
+         the window stands on glass (UseGlass in the code-behind) Windows draws the shadow and
+         the corners, and the room, the shadow and the edge here are taken away. -->
+    <Grid x:Name="Outer" Margin="20">
+        <!-- The shadow sits on its own element so the effect does not blur the text above it. -->
+        <Border x:Name="Shade" CornerRadius="12" Background="{DynamicResource Bg}">
+            <Border.Effect>
+                <DropShadowEffect BlurRadius="28" ShadowDepth="6" Direction="270" Opacity="0.28" />
+            </Border.Effect>
+        </Border>
+        <Border x:Name="Body" Height="475" CornerRadius="12" Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Stroke}" BorderThickness="1">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="64" />
+                    <RowDefinition Height="1" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="1" />
+                    <RowDefinition Height="40" />
+                </Grid.RowDefinitions>
+
+                <!-- The input line. In front of it: Wyvern's mark while searching, otherwise the
+                     way back and the name of what is open. Behind it, in the clipboard history,
+                     the choice of kinds. -->
+                <Grid Grid.Row="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="14,0,0,0">
+                        <Viewbox x:Name="SearchMark" Width="22" Height="22" Margin="0,0,0,0">
+                            <Canvas Width="64" Height="64">
+                                <Path Stroke="{DynamicResource Faint}" StrokeThickness="7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 47.4,13.6 A 24,24 0 0 1 47.4,50.4" />
+                                <Path Stroke="{DynamicResource Faint}" StrokeThickness="7" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 16.6,13.6 A 24,24 0 0 0 16.6,50.4" />
+                                <Ellipse Canvas.Left="21" Canvas.Top="21" Width="22" Height="22" Fill="{DynamicResource Faint}" />
+                            </Canvas>
+                        </Viewbox>
+                        <Button x:Name="BackButton" Style="{StaticResource BackButton}" Click="OnBackClicked" Visibility="Collapsed" />
+                        <!-- Argument mode: the item the text is for. -->
+                        <Border Style="{StaticResource NameChip}" Visibility="{Binding InArgumentMode, Converter={StaticResource VisibleWhenTrue}}">
+                            <TextBlock Foreground="{DynamicResource Ink}" FontSize="13.5" MaxWidth="280" TextTrimming="CharacterEllipsis" Text="{Binding ArgumentTitle}" />
+                        </Border>
+                        <!-- Output mode: the script whose output is shown. -->
+                        <Border Style="{StaticResource NameChip}" Visibility="{Binding Output.IsOpen, Converter={StaticResource VisibleWhenTrue}}">
+                            <TextBlock Foreground="{DynamicResource Ink}" FontSize="13.5" MaxWidth="280" TextTrimming="CharacterEllipsis" Text="{Binding Output.Title}" />
+                        </Border>
+                    </StackPanel>
+                    <Grid Grid.Column="1">
+                        <!-- Search mode: what the line is for, shown until something has been typed. -->
+                        <TextBlock x:Name="SearchPrompt"
+                                   FontSize="18"
+                                   Padding="12,0,0,1"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Faint}"
+                                   IsHitTestVisible="False"
+                                   Text="Search for apps and commands..." />
+                        <!-- Argument mode: what to type, shown until something has been typed.
+                             It lies under the input, which is transparent. In search mode the
+                             prompt is empty, so nothing shows. -->
+                        <TextBlock FontSize="18"
+                                   Padding="12,0,0,1"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Faint}"
+                                   IsHitTestVisible="False"
+                                   TextTrimming="CharacterEllipsis"
+                                   Text="{Binding ArgumentPrompt}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Query}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <!-- Output mode: "Running", then how the script ended. It lies under the
+                             input in the same way. The input is empty and cannot be typed in
+                             while the output is shown. When the view is closed the status is
+                             empty, so nothing shows. -->
+                        <TextBlock FontSize="18"
+                                   Padding="12,0,0,1"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Dim}"
+                                   IsHitTestVisible="False"
+                                   TextTrimming="CharacterEllipsis"
+                                   Text="{Binding Output.Status}" />
+                        <!-- Clipboard mode: what typing does, shown until something has been
+                             typed. When the view is closed the prompt is empty. -->
+                        <TextBlock FontSize="18"
+                                   Padding="12,0,0,1"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Faint}"
+                                   IsHitTestVisible="False"
+                                   TextTrimming="CharacterEllipsis"
+                                   Text="{Binding Clipboard.Prompt}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Query}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <!-- A list of its own, such as the open windows: what typing looks
+                             for, shown until something has been typed. -->
+                        <TextBlock FontSize="18"
+                                   Padding="12,0,0,1"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Faint}"
+                                   IsHitTestVisible="False"
+                                   TextTrimming="CharacterEllipsis"
+                                   Text="{Binding ScopePrompt}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Query}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <!-- The emoji picker, in the same way. -->
+                        <TextBlock FontSize="18"
+                                   Padding="12,0,0,1"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Faint}"
+                                   IsHitTestVisible="False"
+                                   TextTrimming="CharacterEllipsis"
+                                   Text="{Binding Emoji.Prompt}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Query}" Value="">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBox x:Name="QueryBox"
+                                 Text="{Binding Query, UpdateSourceTrigger=PropertyChanged}"
+                                 IsReadOnly="{Binding Output.IsOpen, Mode=OneWay}"
+                                 FontSize="18"
+                                 Padding="9,0,8,1"
+                                 VerticalAlignment="Stretch"
+                                 VerticalContentAlignment="Center"
+                                 Background="Transparent"
+                                 Foreground="{DynamicResource Ink}"
+                                 CaretBrush="{DynamicResource Ink}"
+                                 BorderThickness="0"
+                                 AcceptsTab="False" />
+                    </Grid>
+                    <ComboBox x:Name="TypeFilter"
+                              Grid.Column="2"
+                              Style="{StaticResource TypeChoice}"
+                              Width="196"
+                              Height="34"
+                              Margin="0,0,15,0"
+                              VerticalAlignment="Center"
+                              SelectedValuePath="Value"
+                              SelectedValue="{Binding Clipboard.TypeFilter, Mode=TwoWay}"
+                              DropDownClosed="OnTypeFilterClosed"
+                              Visibility="{Binding Clipboard.IsOpen, Converter={StaticResource VisibleWhenTrue}}" />
+                    <!-- The emoji picker's choice of skin tone, in the same place. -->
+                    <ComboBox x:Name="ToneFilter"
+                              Grid.Column="2"
+                              Style="{StaticResource TypeChoice}"
+                              Width="196"
+                              Height="34"
+                              Margin="0,0,15,0"
+                              VerticalAlignment="Center"
+                              SelectedValuePath="Value"
+                              SelectedValue="{Binding Emoji.Tone, Mode=TwoWay}"
+                              DropDownClosed="OnTypeFilterClosed"
+                              Visibility="{Binding Emoji.IsOpen, Converter={StaticResource VisibleWhenTrue}}" />
+                </Grid>
+                <Border Grid.Row="1" Background="{DynamicResource Line}" />
+
+                <!-- What the typed text found, or before anything is typed the suggestions, the
+                     commands and the apps, each group under its heading. -->
+                <ListBox x:Name="ResultList"
+                         Grid.Row="2"
+                         Style="{StaticResource PlainList}"
+                         ItemContainerStyle="{StaticResource RowStyle}"
+                         ItemsSource="{Binding Results}"
+                         SelectedIndex="{Binding SelectedIndex, Mode=TwoWay}"
+                         PreviewMouseMove="OnListMouseMove"
+                         PreviewMouseLeftButtonUp="OnResultClicked">
+                    <ListBox.GroupStyle>
+                        <GroupStyle HeaderTemplate="{StaticResource GroupHeading}" ContainerStyle="{StaticResource GroupContainer}" />
+                    </ListBox.GroupStyle>
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <!-- The item's own icon when it has one (an app's); otherwise a
+                                     coloured tile with a sign for what the item is. -->
+                                <Grid Grid.Column="0" Width="24" Height="24" Margin="0,0,11,0">
+                                    <Border CornerRadius="6"
+                                            Background="{Binding Converter={StaticResource ItemTile}}"
+                                            Visibility="{Binding IconKey, Converter={StaticResource TileVisibility}}">
+                                        <Grid>
+                                            <TextBlock FontFamily="{StaticResource Glyphs}"
+                                                       FontSize="13"
+                                                       Foreground="White"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Text="{Binding Converter={StaticResource ItemGlyph}}" />
+                                            <!-- A window command has a picture of where the window goes. -->
+                                            <Path Width="14"
+                                                  Height="11"
+                                                  Fill="White"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  Data="{Binding Converter={StaticResource ItemShape}}" />
+                                        </Grid>
+                                    </Border>
+                                    <Image Width="24" Height="24" Source="{Binding IconKey, Converter={StaticResource IconKeyConverter}}" />
+                                </Grid>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock FontSize="14" Foreground="{DynamicResource Ink}" MaxWidth="430" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Text="{Binding Title}" />
+                                    <!-- The alias the owner gave the item, in a small frame. Not there for an item without one. -->
+                                    <Border CornerRadius="4" BorderThickness="1" BorderBrush="{DynamicResource Stroke}" Padding="5,0,5,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Converter={StaticResource ItemAlias}}" Value="">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock FontSize="12" Foreground="{DynamicResource Dim}" Text="{Binding Converter={StaticResource ItemAlias}}" />
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Grid.Column="2" FontSize="14" Foreground="{DynamicResource Dim}" Margin="11,0,0,0" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Text="{Binding Converter={StaticResource ItemSubtitle}}" />
+                                <TextBlock Grid.Column="3" FontSize="13.5" Foreground="{DynamicResource Dim}" Margin="12,0,2,0" VerticalAlignment="Center" Text="{Binding Kind, Converter={StaticResource KindLabel}}" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+                <!-- Said in place of the list when the typed text found nothing. -->
+                <TextBlock x:Name="NoResults"
+                           Grid.Row="2"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontSize="14"
+                           Foreground="{DynamicResource Dim}"
+                           IsHitTestVisible="False"
+                           Visibility="Collapsed"
+                           Text="No results" />
+
+                <!-- The emoji picker: every emoji under its heading, eight to a line, or what
+                     the typed text found. The lines are the list's rows, so that only those on
+                     show are made; the selected emoji is marked in its own cell. -->
+                <Grid x:Name="EmojiPane"
+                      Grid.Row="2"
+                      Background="Transparent"
+                      Visibility="{Binding Emoji.IsOpen, Converter={StaticResource VisibleWhenTrue}}">
+                    <ListBox x:Name="EmojiList"
+                             Style="{StaticResource PlainList}"
+                             ItemContainerStyle="{StaticResource EmojiRowStyle}"
+                             ItemsSource="{Binding Emoji.Rows}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock Margin="14,10,14,5"
+                                               FontSize="12"
+                                               FontWeight="Medium"
+                                               Foreground="{DynamicResource Dim}"
+                                               Text="{Binding Heading}"
+                                               Visibility="{Binding Heading, Converter={StaticResource CollapsedWhenNull}}" />
+                                    <ItemsControl ItemsSource="{Binding Cells}" Margin="9,0,0,0" Focusable="False">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Orientation="Horizontal" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border x:Name="Cell"
+                                                        Width="87"
+                                                        Height="64"
+                                                        Margin="2"
+                                                        CornerRadius="8"
+                                                        Background="Transparent"
+                                                        MouseMove="OnEmojiMouseMove"
+                                                        MouseLeftButtonUp="OnEmojiClicked">
+                                                    <Image Width="44" Height="44" Source="{Binding Emoji, Converter={StaticResource EmojiPicture}}" />
+                                                </Border>
+                                                <DataTemplate.Triggers>
+                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                                        <Setter TargetName="Cell" Property="Background" Value="{DynamicResource Pick}" />
+                                                    </DataTrigger>
+                                                </DataTemplate.Triggers>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <!-- Said in place of the grid when there is nothing in it. -->
+                    <TextBlock HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               FontSize="14"
+                               Foreground="{DynamicResource Dim}"
+                               IsHitTestVisible="False"
+                               Text="{Binding Emoji.Status}" />
+                </Grid>
+
+                <!-- Output mode: what the script printed (the newest 200,000 characters at most),
+                     where the results would be. It can be selected and copied, and never typed
+                     in, so there is nothing to undo, and no undo history is kept of text this long. -->
+                <TextBox x:Name="OutputBox"
+                         Grid.Row="2"
+                         Visibility="{Binding Output.IsOpen, Converter={StaticResource VisibleWhenTrue}}"
+                         Text="{Binding Output.Text, Mode=OneWay}"
+                         IsReadOnly="True"
+                         IsUndoEnabled="False"
+                         IsTabStop="False"
+                         Padding="16,12"
+                         FontFamily="Cascadia Mono, Consolas"
+                         FontSize="13"
+                         Background="Transparent"
+                         Foreground="{DynamicResource Ink}"
+                         BorderThickness="0"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Disabled" />
+
+                <!-- Clipboard mode: the history on the left, under the day each entry was copied,
+                     and the selected entry on the right: what it is, and under that what is known
+                     about it. The input line above filters the list. The preview has one element
+                     for each kind of content it can show, laid over one another; the ones with
+                     nothing to show are empty. -->
+                <Grid x:Name="ClipboardPane"
+                      Grid.Row="2"
+                      Background="Transparent"
+                      Visibility="{Binding Clipboard.IsOpen, Converter={StaticResource VisibleWhenTrue}}">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="285" />
+                        <ColumnDefinition Width="1" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <ListBox x:Name="ClipList"
+                             Grid.Column="0"
+                             Style="{StaticResource PlainList}"
+                             ItemContainerStyle="{StaticResource RowStyle}"
+                             ItemsSource="{Binding Clipboard.Rows}"
+                             SelectedIndex="{Binding Clipboard.SelectedIndex, Mode=TwoWay}"
+                             SelectionChanged="OnClipSelectionChanged"
+                             PreviewMouseMove="OnListMouseMove"
+                             PreviewMouseLeftButtonUp="OnClipClicked">
+                        <ListBox.GroupStyle>
+                            <GroupStyle HeaderTemplate="{StaticResource GroupHeading}" ContainerStyle="{StaticResource GroupContainer}" />
+                        </ListBox.GroupStyle>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <DockPanel>
+                                    <!-- A small copy of the picture, for an entry that is one;
+                                         otherwise a tile with a sign for what the entry is. -->
+                                    <Grid DockPanel.Dock="Left" Width="24" Height="24" Margin="0,0,11,0">
+                                        <Border CornerRadius="6" Background="{DynamicResource Chip}">
+                                            <TextBlock FontFamily="{StaticResource Glyphs}"
+                                                       FontSize="13"
+                                                       Foreground="{DynamicResource Ink}"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Text="{Binding Kind, Converter={StaticResource ClipGlyph}}" />
+                                        </Border>
+                                        <Border Width="24" Height="24" Background="{DynamicResource Bg}" Visibility="{Binding Picture, Converter={StaticResource CollapsedWhenNull}}">
+                                            <Border.Clip>
+                                                <RectangleGeometry Rect="0,0,24,24" RadiusX="5" RadiusY="5" />
+                                            </Border.Clip>
+                                            <Image Width="24" Height="24" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" local:Thumb.Path="{Binding Picture}" />
+                                        </Border>
+                                    </Grid>
+                                    <!-- A pin at the right of an entry that is pinned. -->
+                                    <TextBlock DockPanel.Dock="Right"
+                                               FontFamily="{StaticResource Glyphs}"
+                                               FontSize="12"
+                                               Foreground="{DynamicResource Dim}"
+                                               Margin="8,0,2,0"
+                                               VerticalAlignment="Center"
+                                               Visibility="{Binding Pinned, Converter={StaticResource VisibleWhenTrue}}"
+                                               Text="&#xE718;" />
+                                    <Grid VerticalAlignment="Center">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <!-- The title gives way to the pin of a pinned entry. -->
+                                        <TextBlock Grid.Column="0" FontSize="14" Foreground="{DynamicResource Ink}" TextTrimming="CharacterEllipsis" Text="{Binding Title}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="MaxWidth" Value="216" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Pinned}" Value="True">
+                                                            <Setter Property="MaxWidth" Value="198" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <!-- The size of a picture that has no name, once it has been read. -->
+                                        <TextBlock Grid.Column="1" FontSize="14" Foreground="{DynamicResource Ink}" local:Thumb.SizeOf="{Binding}" />
+                                    </Grid>
+                                </DockPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <!-- Said in place of the list when it is empty. Otherwise it is empty itself. -->
+                    <TextBlock Grid.Column="0"
+                               Margin="16,16"
+                               Foreground="{DynamicResource Dim}"
+                               FontSize="13.5"
+                               TextWrapping="Wrap"
+                               IsHitTestVisible="False"
+                               Text="{Binding Clipboard.Status}" />
+                    <Border Grid.Column="1" Background="{DynamicResource Line}" />
+                    <Grid Grid.Column="2">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="200" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid x:Name="ClipPreviewBox" Grid.Row="0">
+                            <!-- Text, a link, or a list of files, never typed in. It cannot take
+                                 the focus: the input line keeps the keyboard whatever is clicked,
+                                 so that typing always filters the list. The mouse wheel still
+                                 scrolls it. Selecting text here with the mouse is given up for
+                                 that. -->
+                            <TextBox x:Name="ClipPreviewText"
+                                     Text="{Binding Clipboard.PreviewText, Mode=OneWay}"
+                                     IsReadOnly="True"
+                                     IsUndoEnabled="False"
+                                     IsTabStop="False"
+                                     Focusable="False"
+                                     Padding="16,12"
+                                     FontSize="13.5"
+                                     Background="Transparent"
+                                     Foreground="{DynamicResource Ink}"
+                                     BorderThickness="0"
+                                     TextWrapping="Wrap"
+                                     VerticalScrollBarVisibility="Hidden"
+                                     HorizontalScrollBarVisibility="Disabled" />
+                            <!-- A picture, made smaller to fit and never larger. It has no binding:
+                                 the window reads the file of the selected row away from the UI
+                                 thread, at the size of this place, and puts the picture here
+                                 when it has come (OnClipboardChanged in the code-behind). -->
+                            <Image x:Name="ClipPreviewPicture"
+                                   Margin="16,14,16,8"
+                                   Stretch="Uniform"
+                                   StretchDirection="DownOnly"
+                                   IsHitTestVisible="False" />
+                        </Grid>
+                        <TextBlock x:Name="ClipNote"
+                                   Grid.Row="1"
+                                   Margin="16,2,16,6"
+                                   Foreground="{DynamicResource Dim}"
+                                   FontSize="11.5"
+                                   TextWrapping="Wrap"
+                                   Visibility="Collapsed" />
+                        <!-- What is known about the selected entry, line under line. -->
+                        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Hidden" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+                            <StackPanel Margin="16,4,16,10">
+                                <TextBlock FontSize="12.5" FontWeight="Medium" Foreground="{DynamicResource Dim}" Margin="0,2,0,4" Text="Information">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Clipboard.Info.Count}" Value="0">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <ItemsControl x:Name="InfoTable" Focusable="False">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border BorderThickness="0,0,0,1" BorderBrush="{DynamicResource Line}" Height="33">
+                                                <DockPanel VerticalAlignment="Center">
+                                                    <TextBlock DockPanel.Dock="Left" FontSize="13.5" Foreground="{DynamicResource Dim}" Text="{Binding Label}" />
+                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="16,0,0,0">
+                                                        <Image Width="18" Height="18" Margin="0,0,7,0" VerticalAlignment="Center" Source="{Binding Icon}" Visibility="{Binding Icon, Converter={StaticResource CollapsedWhenNull}}" />
+                                                        <TextBlock FontSize="13.5" Foreground="{DynamicResource Ink}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Value}" />
+                                                    </StackPanel>
+                                                </DockPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+                </Grid>
+
+                <Border Grid.Row="3" Background="{DynamicResource Line}" />
+
+                <!-- The foot: on the left what is open, on the right what Enter does. -->
+                <Grid x:Name="Foot" Grid.Row="4">
+                    <!-- Everything that can be done with what is selected, shown over the foot by
+                         Ctrl+K. The arrows move through it, Enter does the selected one. -->
+                    <Popup x:Name="ActionsPopup"
+                           PlacementTarget="{Binding ElementName=Foot}"
+                           Placement="Top"
+                           VerticalOffset="4"
+                           AllowsTransparency="True"
+                           Focusable="False"
+                           PopupAnimation="None">
+                        <Grid Margin="14" Width="330">
+                            <Border CornerRadius="10" Background="{DynamicResource Bg}">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="18" ShadowDepth="4" Direction="270" Opacity="0.25" />
+                                </Border.Effect>
+                            </Border>
+                            <Border CornerRadius="10" BorderThickness="1" BorderBrush="{DynamicResource Stroke}" Background="{DynamicResource Bg}">
+                                <ListBox x:Name="ActionsList"
+                                         Style="{StaticResource PlainList}"
+                                         ItemContainerStyle="{StaticResource ActionRowStyle}"
+                                         MaxHeight="280"
+                                         PreviewMouseMove="OnListMouseMove"
+                                         PreviewMouseLeftButtonUp="OnActionClicked">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <DockPanel>
+                                                <ItemsControl DockPanel.Dock="Right" ItemsSource="{Binding Keys}" Focusable="False" VerticalAlignment="Center">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <StackPanel Orientation="Horizontal" />
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Style="{StaticResource KeyCap}" Margin="4,0,0,0">
+                                                                <TextBlock Style="{StaticResource KeyText}" FontFamily="Segoe UI Variable Text, Segoe UI, Segoe Fluent Icons, Segoe MDL2 Assets" Text="{Binding}" />
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                <TextBlock FontSize="13.5" Foreground="{DynamicResource Ink}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Text="{Binding Text}" />
+                                            </DockPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Border>
+                        </Grid>
+                    </Popup>
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="14,0,0,0">
+                        <Viewbox x:Name="FootMark" Width="18" Height="18">
+                            <Canvas Width="64" Height="64">
+                                <Rectangle Width="64" Height="64" RadiusX="15" RadiusY="15" Fill="#FF1E3A5F" />
+                                <Path Stroke="White" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 45.5,15.9 A 21,21 0 0 1 45.5,48.1" />
+                                <Path Stroke="White" StrokeThickness="6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" Data="M 18.5,15.9 A 21,21 0 0 0 18.5,48.1" />
+                                <Ellipse Canvas.Left="22.4" Canvas.Top="22.4" Width="19.2" Height="19.2" Fill="#FFFFB000" />
+                            </Canvas>
+                        </Viewbox>
+                        <Border x:Name="FootTile" Width="18" Height="18" CornerRadius="5" Background="#FFF5A623" Visibility="Collapsed">
+                            <TextBlock FontFamily="{StaticResource Glyphs}" Text="&#xE77F;" FontSize="10.5" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock x:Name="FootName" Margin="9,0,0,1" FontSize="13" Foreground="{DynamicResource Dim}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel x:Name="FootAction" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0">
+                        <TextBlock x:Name="ActionText" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource Ink}" VerticalAlignment="Center" Margin="0,0,9,1" />
+                        <Border x:Name="ActionKey" Style="{StaticResource KeyCap}">
+                            <TextBlock Style="{StaticResource KeyText}" FontFamily="{StaticResource Glyphs}" FontSize="11" Text="&#xE751;" />
+                        </Border>
+                        <StackPanel x:Name="SecondAction" Orientation="Horizontal" Visibility="Collapsed">
+                            <Border Width="1" Height="14" Margin="12,0" Background="{DynamicResource Stroke}" />
+                            <TextBlock x:Name="SecondText" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource Ink}" VerticalAlignment="Center" Margin="0,0,9,1" Text="Actions" />
+                            <Border Style="{StaticResource KeyCap}" Margin="0,0,4,0">
+                                <TextBlock Style="{StaticResource KeyText}" Text="Ctrl" />
+                            </Border>
+                            <Border Style="{StaticResource KeyCap}">
+                                <TextBlock x:Name="SecondKey" Style="{StaticResource KeyText}" Text="K" />
+                            </Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

@@ -1,4 +1,4 @@
-# Draws Beacon's icon and writes it to src\Beacon.App\Beacon.ico. The icon is kept in the
+# Draws Wyvern's icon and writes it to src\Wyvern.App\Wyvern.ico. The icon is kept in the
 # repository; run this only to change how it looks:
 #
 #   powershell -ExecutionPolicy Bypass -File installer\make-icon.ps1
@@ -9,7 +9,7 @@
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 
-$target = Join-Path (Split-Path -Parent $PSScriptRoot) 'src\Beacon.App\Beacon.ico'
+$target = Join-Path (Split-Path -Parent $PSScriptRoot) 'src\Wyvern.App\Wyvern.ico'
 $sizes = 16, 20, 24, 32, 40, 48, 64, 256
 
 function New-Picture([int]$size) {

@@ -1,4 +1,4 @@
-# Beacon
+# Wyvern
 
 A keyboard launcher for Windows. Hit the hotkey, type a few letters, press Enter.
 
@@ -29,14 +29,14 @@ Coming soon.
 ## Build and run
 
 ```
-dotnet build Beacon.slnx
-dotnet test Beacon.slnx
-dotnet run --project src/Beacon.App
+dotnet build Wyvern.slnx
+dotnet test Wyvern.slnx
+dotnet run --project src/Wyvern.App
 ```
 
-Beacon starts in the tray with no window. Press **Alt+Space** to open the launcher. On first run it asks for a clipboard history hotkey too (it suggests Ctrl+Shift+V). You can change both in Settings.
+Wyvern starts in the tray with no window. Press **Alt+Space** to open the launcher. On first run it asks for a clipboard history hotkey too (it suggests Ctrl+Shift+V). You can change both in Settings.
 
-Settings live in `%LOCALAPPDATA%\Beacon\settings.json`. The "Open Settings File" command opens it.
+Settings live in `%LOCALAPPDATA%\Wyvern\settings.json`. The "Open Settings File" command opens it.
 
 ## Installing
 
@@ -46,10 +46,10 @@ To build a setup program you need Inno Setup 6:
 powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
 ```
 
-That puts `BeaconSetup.exe` in `dist\`. It installs per user, no admin needed. Or just publish it to a folder:
+That puts `WyvernSetup.exe` in `dist\`. It installs per user, no admin needed. Or just publish it to a folder:
 
 ```
-dotnet publish src/Beacon.App -c Release -o "$env:LOCALAPPDATA\Programs\Beacon"
+dotnet publish src/Wyvern.App -c Release -o "$env:LOCALAPPDATA\Programs\Wyvern"
 ```
 
 ## License

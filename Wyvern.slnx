@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Wyvern.App/Wyvern.App.csproj" />
+    <Project Path="src/Wyvern.Core/Wyvern.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Wyvern.Tests/Wyvern.Tests.csproj" />
+  </Folder>
+</Solution>

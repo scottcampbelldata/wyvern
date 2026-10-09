@@ -1,24 +1,24 @@
-# Sets this machine up as the one that signs Beacon's updates, and writes the file that tells
-# a build where to look for them. Run it once, on the machine Beacon is built on:
+# Sets this machine up as the one that signs Wyvern's updates, and writes the file that tells
+# a build where to look for them. Run it once, on the machine Wyvern is built on:
 #
 #   powershell -ExecutionPolicy Bypass -File installer\new-update-key.ps1 -Url http://100.64.0.10:8795/
 #
 # What it makes:
 #
-#   %LOCALAPPDATA%\BeaconRelease\update-signing-key.bin
+#   %LOCALAPPDATA%\WyvernRelease\update-signing-key.bin
 #       The signing key (ECDSA, P-256), protected by Windows so that only this Windows user on
 #       this machine can use it. It is never shown and never leaves this machine. A key that is
 #       there already is kept: this script never writes over one.
 #
 #   installer\update-channel.json
 #       The address of the update server and the public half of the key. The build puts this
-#       file into Beacon, which then looks for updates at that address and installs only what
+#       file into Wyvern, which then looks for updates at that address and installs only what
 #       is signed with that key. The file is not in the repository.
 #
 # The address has to be plain http to a machine inside the private network, written as numbers
-# (100.64.0.0 to 100.127.255.255): Beacon refuses any other.
+# (100.64.0.0 to 100.127.255.255): Wyvern refuses any other.
 #
-# If the key file is ever lost, updates signed with a new key are refused by every Beacon built
+# If the key file is ever lost, updates signed with a new key are refused by every Wyvern built
 # with the old one: each PC then needs one install by hand of a build made with the new key.
 param([Parameter(Mandatory = $true)][string]$Url)
 
@@ -32,9 +32,9 @@ if (-not $Url.EndsWith('/')) {
     $Url = $Url + '/'
 }
 
-$folder = Join-Path $env:LOCALAPPDATA 'BeaconRelease'
+$folder = Join-Path $env:LOCALAPPDATA 'WyvernRelease'
 $keyFile = Join-Path $folder 'update-signing-key.bin'
-$purpose = [Text.Encoding]::UTF8.GetBytes('Beacon update signing key v1')
+$purpose = [Text.Encoding]::UTF8.GetBytes('Wyvern update signing key v1')
 
 if (Test-Path $keyFile) {
     $private = [Security.Cryptography.ProtectedData]::Unprotect([IO.File]::ReadAllBytes($keyFile), $purpose, 'CurrentUser')
@@ -52,7 +52,7 @@ if (Test-Path $keyFile) {
 [Array]::Clear($private, 0, $private.Length)
 
 # The public half as Windows gives it: eight bytes that say what it is, then the two
-# coordinates of the point, 32 bytes each. Beacon wants the coordinates alone.
+# coordinates of the point, 32 bytes each. Wyvern wants the coordinates alone.
 $blob = $key.Export([Security.Cryptography.CngKeyBlobFormat]::EccPublicBlob)
 if ($blob.Length -ne 72) {
     throw 'The public half of the key does not have the size of a P-256 key.'
@@ -65,4 +65,4 @@ $json = '{ "url": "' + $Url + '", "publicKey": "' + $publicKey + '" }'
 
 "Key file:     $keyFile"
 "Channel file: $channel"
-"Build Beacon again (installer\build-installer.ps1) for the channel to be in it."
+"Build Wyvern again (installer\build-installer.ps1) for the channel to be in it."
