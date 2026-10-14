@@ -8,7 +8,7 @@
 #   1. Takes dist\WyvernSetup-<version>.exe, the version being the one in installer\version.txt
 #      unless -Version names another.
 #   2. Writes "latest.json": the version, the file's name, its size and its SHA-256.
-#   3. Signs exactly those bytes with this machine's signing key (installer\new-update-key.ps1
+#   3. Signs exactly those bytes with the server's private key (installer\new-update-key.ps1
 #      made it) and checks the signature against the public half that is built into Wyvern.
 #   4. Copies the setup program to the server first, and only then the two small files, each
 #      under another name that is given its real name at the end: a Wyvern that looks while
@@ -20,7 +20,7 @@
 param(
     [string]$Version,
     [Parameter(Mandatory = $true)][string]$Server,
-    [string]$Folder = 'wyvern-updates'
+    [string]$Folder = 'app-updates/wyvern'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -33,8 +33,8 @@ if (-not $Version) {
 if ($Version -notmatch '^[0-9]{1,4}\.[0-9]{1,4}\.[0-9]{1,4}$') {
     throw "'$Version' is not a version of three numbers."
 }
-if ($Folder -notmatch '^[A-Za-z0-9._-]+$') {
-    throw 'The folder on the server is one plain name.'
+if ($Folder -notmatch '^[A-Za-z0-9_-]+(/[A-Za-z0-9_-]+)*$') {
+    throw 'The server folder must be a relative path of plain names, without traversal.'
 }
 
 $name = "WyvernSetup-$Version.exe"
@@ -44,9 +44,8 @@ if (-not (Test-Path $setup)) {
 }
 
 $channelFile = Join-Path $PSScriptRoot 'update-channel.json'
-$keyFile = Join-Path $env:LOCALAPPDATA 'WyvernRelease\update-signing-key.bin'
-if (-not (Test-Path $channelFile) -or -not (Test-Path $keyFile)) {
-    throw 'This machine is not set up to sign updates. Run installer\new-update-key.ps1 first.'
+if (-not (Test-Path $channelFile)) {
+    throw 'The update channel is missing. Run installer\new-update-key.ps1 -Server first.'
 }
 
 # The manifest, in the one plain form Wyvern reads.
@@ -55,14 +54,12 @@ $hash = (Get-FileHash $setup -Algorithm SHA256).Hash.ToLowerInvariant()
 $manifest = '{"version":"' + $Version + '","file":"' + $name + '","size":' + $size + ',"sha256":"' + $hash + '"}'
 $manifestBytes = [Text.Encoding]::UTF8.GetBytes($manifest)
 
-# Signed with the key that only this Windows user on this machine can use.
-$purpose = [Text.Encoding]::UTF8.GetBytes('Wyvern update signing key v1')
-$private = [Security.Cryptography.ProtectedData]::Unprotect([IO.File]::ReadAllBytes($keyFile), $purpose, 'CurrentUser')
-$key = [Security.Cryptography.CngKey]::Import($private, [Security.Cryptography.CngKeyBlobFormat]::Pkcs8PrivateBlob)
-[Array]::Clear($private, 0, $private.Length)
-$signer = New-Object Security.Cryptography.ECDsaCng($key)
-$signer.HashAlgorithm = [Security.Cryptography.CngAlgorithm]::Sha256
-$signature = $signer.SignData($manifestBytes)
+# Only the manifest goes to the signer. The private key never leaves Ubuntu.
+$ssh = @('-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20')
+$encoded = [Convert]::ToBase64String($manifestBytes)
+$signed = & ssh @ssh $Server "printf '%s' '$encoded' | base64 --decode | python3 .local/share/wyvern-release/server-signing.py sign"
+if ($LASTEXITCODE -ne 0) { throw 'The server could not sign this release. Nothing was published.' }
+$signature = [Convert]::FromBase64String($signed)
 if ($signature.Length -ne 64) {
     throw 'The signature does not have the size of a P-256 signature.'
 }
@@ -76,7 +73,7 @@ $blob = New-Object byte[] 72
 $checker = New-Object Security.Cryptography.ECDsaCng([Security.Cryptography.CngKey]::Import($blob, [Security.Cryptography.CngKeyBlobFormat]::EccPublicBlob))
 $checker.HashAlgorithm = [Security.Cryptography.CngAlgorithm]::Sha256
 if (-not $checker.VerifyData($manifestBytes, $signature)) {
-    throw 'The signing key on this machine is not the one whose public half is in installer\update-channel.json. Nothing was published.'
+    throw 'The server signing key does not match installer\update-channel.json. Nothing was published.'
 }
 
 $work = Join-Path $PSScriptRoot 'obj\update'
@@ -87,7 +84,6 @@ $plain = New-Object Text.UTF8Encoding($false)
 
 # To the server: the large file first, then the two small ones, each under a name of its own
 # until it is whole.
-$ssh = @('-o', 'BatchMode=yes', '-o', 'ConnectTimeout=20')
 & scp @ssh -q $setup "${Server}:$Folder/$name.incoming"
 if ($LASTEXITCODE -ne 0) { throw 'The setup program could not be copied to the server.' }
 & scp @ssh -q (Join-Path $work 'latest.json') "${Server}:$Folder/latest.json.incoming"

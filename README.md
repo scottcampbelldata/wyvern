@@ -46,12 +46,40 @@ To build a setup program you need Inno Setup 6:
 powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
 ```
 
-That puts `WyvernSetup.exe` in `dist\`. It installs per user, no admin needed. Or just publish it to a folder:
+That puts `WyvernSetup-<version>.exe` in `dist\`. It installs per user, no admin needed. Or just publish it to a folder:
 
 ```
 dotnet publish src/Wyvern.App -c Release -o "$env:LOCALAPPDATA\Programs\Wyvern"
 ```
 
+## Publishing updates
+
+Release signing runs on Ubuntu. Its P-256 private key stays in
+`~/.local/share/wyvern-release/update-signing-key.pem` (directory mode 700, key mode 600),
+outside the HTTP download directory. The server needs Python 3 and `cryptography`.
+Initialize once; rerunning keeps the existing key:
+
+```
+powershell -ExecutionPolicy Bypass -File installer\new-update-key.ps1 -Server ubuntu -Url http://100.110.71.108:8795/wyvern/
+```
+
+Build after initializing so the app embeds the public key and feed address, then publish:
+
+```
+powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
+powershell -ExecutionPolicy Bypass -File installer\publish-update.ps1 -Server ubuntu
+```
+
+Publishers write `/srv/app-updates/wyvern/` through `~/app-updates/wyvern/`. The existing private HTTP endpoint remains compatible. Its original Beacon
+feed remains available at the root. PCs using the old signing key need one manual Wyvern
+install before future Wyvern updates can be verified. Keep the private signing directory
+in protected server backups; losing this key would require another manual upgrade.
+
+Check the signer with `python3 installer/server-signing.py check`. Regenerate the eight-size
+Windows icon from `installer/wyvern-icon.png` with `installer/make-icon.ps1`.
+
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+See [Ubuntu release storage and publishing](docs/UPDATE-STORAGE.md).
